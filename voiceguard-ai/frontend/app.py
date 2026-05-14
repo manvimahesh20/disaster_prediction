@@ -3,6 +3,8 @@ import time
 import requests
 from datetime import datetime
 import streamlit as st
+import json
+from pathlib import Path
 
 
 st.set_page_config(page_title="VoiceGuard AI — Console", layout="wide")
@@ -56,6 +58,52 @@ if "thinking" not in st.session_state:
     st.session_state.thinking = False
 
 
+def fetch_history_once():
+    """Fetch history from backend and update session state without overwriting user's active selection."""
+    try:
+        url = backend_url.rstrip("/") + "/history"
+        r = requests.get(url, timeout=3)
+        if not r.ok:
+            return
+        hist = r.json() or []
+        if not isinstance(hist, list):
+            return
+        # Use last 50 entries
+        new_alerts = hist[-50:]
+        old_ids = [a.get("id") for a in st.session_state.get("alerts", [])]
+        new_ids = [a.get("id") for a in new_alerts]
+        if new_ids != old_ids:
+            st.session_state.alerts = new_alerts
+            # preserve active if its id is still present
+            cur_active = st.session_state.get("active")
+            if cur_active and cur_active.get("id") in new_ids:
+                idx = new_ids.index(cur_active.get("id"))
+                st.session_state.active = new_alerts[idx]
+            else:
+                if new_alerts:
+                    st.session_state.active = new_alerts[-1]
+    except Exception:
+        pass
+
+
+def _poller():
+    import time
+    while True:
+        try:
+            if backend_url:
+                fetch_history_once()
+        except Exception:
+            pass
+        time.sleep(max(1, int(st.session_state.get("auto_refresh_interval", 5))))
+
+
+if "_poller_started" not in st.session_state:
+    import threading
+    t = threading.Thread(target=_poller, daemon=True)
+    t.start()
+    st.session_state["_poller_started"] = True
+
+
 # Sidebar: backend URL and probe
 st.sidebar.header("Settings")
 backend_url = st.sidebar.text_input("Backend URL", value=os.getenv("VOICEGUARD_BACKEND", "http://localhost:8000/"))
@@ -64,10 +112,65 @@ if backend_url:
 else:
     backend_ok = None
 
+# Auto-refresh controls
+if "auto_refresh" not in st.session_state:
+    st.session_state.auto_refresh = False
+if "auto_refresh_interval" not in st.session_state:
+    st.session_state.auto_refresh_interval = 5
+
+st.sidebar.checkbox("Auto refresh", value=st.session_state.auto_refresh, key="auto_refresh")
+st.sidebar.number_input("Refresh interval (s)", min_value=1, max_value=60, value=st.session_state.auto_refresh_interval, step=1, key="auto_refresh_interval")
+
 st.sidebar.markdown("---")
 st.sidebar.write("Tips:")
 st.sidebar.write("- Click an entry in the Alert Ledger to inspect.")
 st.sidebar.write("- Use the voice agent at the right to get a simulated response.")
+# Image verification quick UI on the sidebar
+st.sidebar.markdown("---")
+st.sidebar.header("🔍 Image Verification")
+img_url = st.sidebar.text_input("Image URL to verify", value="")
+if st.sidebar.button("Verify Image"):
+    if img_url.strip():
+        try:
+            backend = backend_url.rstrip("/") + "/verify-image"
+            r = requests.post(backend, json={"image_url": img_url}, timeout=10)
+            if r.ok:
+                data = r.json()
+                verdict = data.get("verdict")
+                conf = data.get("confidence", 0.0)
+                reason = data.get("reasoning", "")
+                sources = data.get("sources_found", 0)
+                if verdict == "VERIFIED_REAL":
+                    st.success(f"VERIFIED REAL — confidence={conf:.2f} — sources={sources}")
+                    st.write(reason)
+                else:
+                    st.error(f"FLAGGED — confidence={conf:.2f} — sources={sources}")
+                    st.write(reason)
+            else:
+                st.warning("Verification request failed")
+        except Exception:
+            st.exception("Verification request error")
+
+# Misinformation log expander
+with st.sidebar.expander("🚫 Misinformation Log"):
+    try:
+        backend = backend_url.rstrip("/") + "/misinformation-log"
+        r = requests.get(backend, timeout=5)
+        if r.ok:
+            logs = r.json()
+            if logs:
+                for entry in logs[-20:][::-1]:
+                    ts = entry.get("flagged_timestamp")
+                    src = entry.get("source") or entry.get("id")
+                    reason = entry.get("flagged_reason")
+                    conf = entry.get("confidence", "n/a")
+                    st.write(f"{ts} — {src} — {reason} — conf={conf}")
+            else:
+                st.write("No flagged posts recorded.")
+        else:
+            st.write("Could not fetch misinformation log")
+    except Exception:
+        st.write("Error fetching misinformation log")
 
 
 # Top ticker
@@ -126,6 +229,72 @@ with col_main:
         btn = st.button(f"{a['timestamp']} — {a['disaster_type']} ({a['location']}) — {a['posts']} posts", key=f"btn_{a['id']}")
         if btn:
             st.session_state.active = a
+
+    st.markdown("---")
+    st.subheader("Scraper Console")
+    data_file = Path(__file__).resolve().parents[1] / "nlp" / "scrapers" / "data" / "disaster_articles.jsonl"
+    items = []
+    if data_file.exists():
+        try:
+            with open(data_file, "r", encoding="utf-8") as fh:
+                for ln in fh:
+                    ln = ln.strip()
+                    if not ln:
+                        continue
+                    try:
+                        items.append(json.loads(ln))
+                    except Exception:
+                        continue
+        except Exception:
+            st.warning("Could not read scraped data file.")
+    else:
+        st.info(f"No scraped data file found at {data_file}")
+
+    if items:
+        recent = items[-200:]
+        labels = []
+        for it in recent:
+            ts = it.get("timestamp") or it.get("published") or it.get("created_at") or ""
+            title = it.get("title") or it.get("headline") or it.get("summary") or it.get("id") or "(no title)"
+            labels.append(f"{ts} — {title[:80]}")
+
+        sel_label = st.selectbox("Select scraped item", labels)
+        sel_idx = labels.index(sel_label)
+        item = recent[sel_idx]
+        st.write(item.get("text") or item.get("summary") or item.get("description") or "")
+        if item.get("image_url"):
+            st.image(item.get("image_url"), use_column_width=True)
+            if st.button("Verify this image", key=f"verify_{sel_idx}"):
+                try:
+                    verify_endpoint = backend_url.rstrip("/") + "/verify-image"
+                    r = requests.post(verify_endpoint, json={"image_url": item.get("image_url")}, timeout=15)
+                    if r.ok:
+                        vr = r.json()
+                        verdict = vr.get("verdict")
+                        conf = vr.get("confidence", 0.0)
+                        st.success(f"Verdict: {verdict} — confidence={conf:.2f}")
+                        if vr.get("reasoning"):
+                            st.write(vr.get("reasoning"))
+                        sources = vr.get("sources_found") or vr.get("sources") or vr.get("news_items")
+                        if sources:
+                            st.write("Sources found:")
+                            try:
+                                for s in sources:
+                                    link = s.get("link") if isinstance(s, dict) else s
+                                    title = s.get("title") if isinstance(s, dict) else ""
+                                    st.write(f"- {title} — {link}")
+                            except Exception:
+                                st.write(sources)
+                    else:
+                        st.warning("Verification request failed")
+                except Exception:
+                    st.exception("Verification request error")
+        else:
+            st.write("No image URL present in this item.")
+        if st.button("Reload scraped items"):
+            st.experimental_rerun()
+    else:
+        st.write("No scraped items available.")
 
 with col_side:
     st.subheader("Signal Telemetry")

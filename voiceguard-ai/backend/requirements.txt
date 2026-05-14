@@ -8,4 +8,5 @@ spacy
 twilio
 python-dotenv
 requests
+openai
 websockets

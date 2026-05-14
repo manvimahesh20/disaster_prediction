@@ -1,0 +1,44 @@
+﻿python.exe : Traceback (most recent call last):
+At line:1 char:326
++ ... les.jsonl"; & 'C:\Users\Diganth\AppData\Local\Python\pythoncore-3.14- ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\Diganth\1stYear\avinya2.0\disaster_prediction\voiceguard-ai\nl
+p\scrapers\run_scrapers.py", line 45, in run_reliefweb
+    reports = fetch_reliefweb_reports(q, limit=5)
+  File "C:\Users\Diganth\1stYear\avinya2.0\disaster_prediction\voiceguard-ai\nl
+p\scrapers\reliefweb_scraper.py", line 28, in fetch_reliefweb_reports
+    resp.raise_for_status()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Diganth\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packa
+ges\requests\models.py", line 1168, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 410 Client Error: Gone for url: 
+https://api.reliefweb.int/v1/reports?query=Kerala+flood&limit=5
+Scrapers smoke-test starting...
+
+Running RSS fetch for: ['https://news.google.com/rss/search?q=Kerala+flood', 'https://news.google.com/rss/search?q=Kerala']
+Feed https://news.google.com/rss/search?q=Kerala+flood: 0 entries
+Feed https://news.google.com/rss/search?q=Kerala: 0 entries
+
+
+Running ReliefWeb fetch for: Kerala flood
+ReliefWeb fetch failed:
+
+
+Running Telegram fetch for: ['keralaupdates']
+Channel keralaupdates: 0 posts
+
+
+Running arXiv fetch for disaster keywords
+Got 5 papers
+ - Robust blue-green urban flood risk management optimised with a genetic algorithm for multiple rainstorm return periods
+ - Developing and Testing the Automated Post-Event Earthquake Loss Estimation and Visualisation (APE-ELEV) Technique
+ - Earthquake theorem for cluster algebras of finite type
+ - Evaluating the weight sensitivity in AHP-based flood risk estimation models
+ - Calibration of the underlying surface parameters for urban flood using latent variables and adjoint equation
+
+Done.

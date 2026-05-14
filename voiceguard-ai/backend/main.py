@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from .memory_store import get_history, get_result, save_result
 from .nlp_connector import run_nlp_check
 from .scheduler import init_scheduler
+from .nlp_connector import verify_image as verify_image_fn
+from .memory_store import get_flagged_log
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voiceguard")
@@ -26,6 +28,10 @@ app.add_middleware(
 
 class VoiceCheckRequest(BaseModel):
     query: str
+
+
+class ImageVerifyRequest(BaseModel):
+    image_url: str
 
 
 class ConnectionManager:
@@ -132,3 +138,22 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     except Exception:
         logger.exception("WebSocket error")
         await manager.disconnect(websocket)
+
+
+@app.post("/verify-image")
+async def verify_image(payload: ImageVerifyRequest) -> Dict[str, Any]:
+    try:
+        res = verify_image_fn(payload.image_url)
+        return res
+    except Exception:
+        logger.exception("Image verification failed")
+        return {"error": "Image verification failed"}
+
+
+@app.get("/misinformation-log")
+async def misinformation_log() -> List[Dict[str, Any]]:
+    try:
+        return get_flagged_log()
+    except Exception:
+        logger.exception("Misinformation log fetch failed")
+        return []
