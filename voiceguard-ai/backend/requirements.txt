@@ -10,3 +10,6 @@ python-dotenv
 requests
 openai
 websockets
+streamlit
+gTTS
+websocket-client

@@ -308,20 +308,75 @@ with col_side:
     # Voice agent
     st.subheader("Voice Agent — KAN · ENG · TUL")
     st.write("Ask in your own language.")
+    # suggestion buttons
+    cols = st.columns(5)
+    suggestions = ["🌊 Any floods?", "🌀 Cyclone warning?", "📍 Which areas affected?", "⚠️ What should I do?", "📊 How many reports?"]
+    for i, s in enumerate(suggestions):
+        if cols[i].button(s, key=f"sugg_{i}"):
+            st.session_state.voiceQuery = s
+            st.session_state.thinking = True
+            st.experimental_rerun()
+
     st.session_state.voiceQuery = st.text_input("", value=st.session_state.voiceQuery, key="voice_input")
     if st.button("Ask"):
         q = st.session_state.voiceQuery.strip()
         if q:
             st.session_state.thinking = True
             st.experimental_rerun()
+
+    # client-side intent detection (mirrors backend parse_voice_query)
+    def detect_intent(q: str) -> str:
+        if not q:
+            return "general"
+        qq = q.lower()
+        if any(kw in qq for kw in ["what to do", "what should i do", "advice", "how to"]):
+            return "what_to_do"
+        if any(kw in qq for kw in ["which areas", "which areas are", "which places", "where are"]):
+            return "which_areas"
+        if any(kw in qq for kw in ["how many", "how many reports", "count", "reports"]):
+            return "how_many"
+        if any(kw in qq for kw in ["how bad", "severity", "how severe", "danger"]):
+            return "how_bad"
+        return "general"
+
+    intent = detect_intent(st.session_state.voiceQuery)
+    st.write(f"Intent detected: **{intent}**")
     if st.session_state.thinking:
         # simulate processing
         time.sleep(0.7)
         active = st.session_state.active
-        st.session_state.voiceResp = (
-            f"Signals near {active['location'].split(' / ')[0]} indicate a {active['severity'].lower()} {active['disaster_type'].lower()} risk. "
-            f"Move to higher ground, avoid the coast. {active['posts']} community reports verified in the last hour."
-        )
+        # call backend voice-check if backend available
+        try:
+            if backend_url:
+                r = requests.post(backend_url.rstrip("/") + "/voice-check", json={"query": st.session_state.voiceQuery}, timeout=10)
+                if r.ok:
+                    data = r.json()
+                    st.session_state.voiceResp = data.get("voice_response") or data.get("advice") or str(data)
+                    # attempt audio playback via gTTS
+                    try:
+                        from gtts import gTTS
+                        import tempfile
+                        tfn = tempfile.gettempdir() + "/voiceguard_response.mp3"
+                        t = gTTS(st.session_state.voiceResp)
+                        t.save(tfn)
+                        st.audio(tfn)
+                    except Exception:
+                        pass
+                else:
+                    st.session_state.voiceResp = (
+                        f"Signals near {active['location'].split(' / ')[0]} indicate a {active['severity'].lower()} {active['disaster_type'].lower()} risk. "
+                        f"Move to higher ground, avoid the coast. {active['posts']} community reports verified in the last hour."
+                    )
+            else:
+                st.session_state.voiceResp = (
+                    f"Signals near {active['location'].split(' / ')[0]} indicate a {active['severity'].lower()} {active['disaster_type'].lower()} risk. "
+                    f"Move to higher ground, avoid the coast. {active['posts']} community reports verified in the last hour."
+                )
+        except Exception:
+            st.session_state.voiceResp = (
+                f"Signals near {active['location'].split(' / ')[0]} indicate a {active['severity'].lower()} {active['disaster_type'].lower()} risk. "
+                f"Move to higher ground, avoid the coast. {active['posts']} community reports verified in the last hour."
+            )
         st.session_state.thinking = False
 
     if st.session_state.voiceResp:
@@ -333,4 +388,35 @@ with col_side:
     st.markdown("---")
     now = datetime.utcnow()
     st.write(f"Backend: {'ONLINE' if backend_ok else 'OFFLINE' if backend_ok is not None else 'N/A'} — UTC {now.strftime('%H:%M:%S')}")
+
+    # Sidebar: Sources Status and Manual Alert
+    with st.sidebar.expander("Sources Status"):
+        try:
+            if backend_url:
+                r = requests.get(backend_url.rstrip("/") + "/sources-status", timeout=3)
+                if r.ok:
+                    status = r.json()
+                    for k, v in status.items():
+                        st.write(f"{k}: {v.get('status')} — {v.get('count')} posts")
+                else:
+                    st.write("Could not fetch sources status")
+            else:
+                st.write("Backend not configured")
+        except Exception:
+            st.write("Error fetching sources status")
+
+    with st.sidebar.expander("Manual Alert"):
+        if st.button("Trigger Manual Flood Alert"):
+            try:
+                payload = {"disaster_type": "Flood", "location": "Mangalore", "severity": "HIGH"}
+                if backend_url:
+                    r = requests.post(backend_url.rstrip("/") + "/manual-alert", json=payload, timeout=5)
+                    if r.ok:
+                        st.success("Alert triggered!")
+                    else:
+                        st.warning("Manual alert failed")
+                else:
+                    st.warning("Backend not configured")
+            except Exception:
+                st.exception("Manual alert failed")
 

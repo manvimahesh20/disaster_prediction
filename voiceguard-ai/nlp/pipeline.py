@@ -464,14 +464,27 @@ def _build_advice(severity: str) -> str:
 
 
 def run_pipeline(source: str = "auto", voice_query: Optional[str] = None) -> Dict[str, Any]:
-    # Pre-warm heavy models so classification doesn't block later
-    _state.prewarm()
+    """Run the full pipeline:
 
-    posts = []
-    posts.extend(_scrape_reddit())
-    posts.extend(_scrape_rss())
-    posts.extend(_load_simulated_posts())
+    - Scrape all sources via `scraper.scrape_all()`
+    - Classify each post, extract locations, score severity
+    - Run triage on posts with images and remove flagged posts
+    - Aggregate results and return structured dict
+    """
+    from .scraper import scrape_all
+    try:
+        # Pre-warm heavy models so classification doesn't block later
+        _state.prewarm()
+    except Exception:
+        pass
 
+    try:
+        posts = scrape_all()
+    except Exception:
+        logger.exception("[NLP] scrape_all failed")
+        posts = []
+
+    # include voice query as a synthetic post if provided
     if voice_query:
         posts.append(
             {
@@ -482,24 +495,122 @@ def run_pipeline(source: str = "auto", voice_query: Optional[str] = None) -> Dic
             }
         )
 
+    # Deduplicate by id/title/url
     posts = _dedupe(posts)
-    texts = [p["text"] for p in posts if p.get("text")]
 
-    disaster_type = _classify_disaster(texts)
-    location = _extract_location(texts)
-    severity = _score_severity(texts)
-    advice = _build_advice(severity)
+    # Attempt to lazy-load triage runner
+    try:
+        try:
+            from triage_pipeline import run_pipeline as run_triage
+        except Exception:
+            from voiceguard_ai.nlp.triage_pipeline import run_pipeline as run_triage
+    except Exception:
+        run_triage = None
 
-    if severity in {"MEDIUM", "HIGH"}:
-        send_sms_alert(severity, location, advice)
+    included_posts = []
+    flagged_count = 0
+    disaster_counter = {}
+    locations_set = set()
+    sources_set = set()
+    highest_severity_level = "LOW"
+    severity_rank = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
+
+    for p in posts:
+        try:
+            text = (p.get("text") or "").strip()
+            if not text:
+                continue
+
+            # classify
+            cls = classify_disaster(text)
+            d_type = cls.get("disaster_type", "none")
+
+            # location
+            loc_struct = extract_location(text)
+            primary_loc = loc_struct.get("primary_location") or loc_struct.get("canonical_names", ["Unknown"])[0]
+
+            # severity
+            sev_struct = score_severity(text)
+            sev_level = sev_struct.get("level", "LOW")
+
+            # triage images if available
+            if p.get("image_url") and run_triage:
+                try:
+                    tri = run_triage(p.get("image_url"))
+                    if tri.get("verdict") != "VERIFIED_REAL":
+                        flagged_count += 1
+                        # save flagged in memory store
+                        try:
+                            from backend.memory_store import save_flagged
+                        except Exception:
+                            save_flagged = None
+                        try:
+                            if save_flagged:
+                                save_flagged(p, tri.get("reasoning") or tri.get("reason") or "triage_flagged")
+                        except Exception:
+                            logger.exception("[NLP] failed to save flagged post")
+                        continue
+                except Exception:
+                    logger.exception("[NLP] triage failed for image")
+
+            included_posts.append(p)
+
+            # aggregates
+            disaster_counter[d_type] = disaster_counter.get(d_type, 0) + 1
+            locations_set.add(primary_loc)
+            sources_set.add(p.get("source", "unknown"))
+            # highest severity
+            if severity_rank.get(sev_level, 0) > severity_rank.get(highest_severity_level, 0):
+                highest_severity_level = sev_level
+
+        except Exception:
+            logger.exception("[NLP] Post processing failed")
+
+    # Determine overall disaster type (most common)
+    if disaster_counter:
+        overall_type = max(disaster_counter, key=disaster_counter.get)
+    else:
+        overall_type = "none"
+
+    highest_location = None
+    # choose a representative location from included posts with highest severity
+    try:
+        if included_posts:
+            # find post with highest severity
+            def _post_sev(p):
+                try:
+                    return severity_rank.get(score_severity(p.get("text",""))['level'], 0)
+                except Exception:
+                    return 0
+
+            top = max(included_posts, key=_post_sev)
+            top_loc = extract_location(top.get("text", ""))
+            highest_location = top_loc.get("primary_location")
+    except Exception:
+        highest_location = None
+
+    posts_analyzed = len(included_posts)
+    posts_flagged = flagged_count
+    advice = _build_advice(highest_severity_level)
 
     result = {
-        "posts_analyzed": len(texts),
-        "disaster_type": disaster_type,
-        "location": location,
-        "severity": severity,
+        "disaster_type": overall_type,
+        "location": highest_location or (list(locations_set)[0] if locations_set else "Unknown"),
+        "severity": highest_severity_level,
         "advice": advice,
+        "posts_analyzed": posts_analyzed,
+        "posts_flagged": posts_flagged,
+        "sources": list(sources_set) or ["simulated"],
+        "all_locations": list(locations_set),
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "source": source,
     }
+
+    # Send SMS for MEDIUM/HIGH
+    try:
+        if result.get("severity") in {"MEDIUM", "HIGH"}:
+            send_sms_alert(result.get("severity"), result.get("location"), result.get("advice"))
+    except Exception:
+        logger.exception("[NLP] send_sms_alert failed")
+
     return result
