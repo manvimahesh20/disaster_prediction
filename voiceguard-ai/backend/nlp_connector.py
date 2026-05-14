@@ -50,86 +50,64 @@ def _build_mock_result(source: str) -> Dict[str, Any]:
     }
 
 
-async def run_nlp_check(source: str = "auto") -> Dict[str, Any]:
+async def run_nlp_check(source: str = "auto", query: str = None) -> Dict[str, Any]:
+    """Run the main NLP pipeline (async wrapper).
+
+    This function delegates to `nlp.pipeline.run_pipeline` in a thread so
+    it doesn't block the event loop.
+    """
     try:
-        # Attempt to run the mock pipeline but run image triage for posts that include images.
-        # This keeps behaviour backwards-compatible while adding image verification.
         loop = asyncio.get_event_loop()
-        posts = await loop.run_in_executor(None, _load_posts)
-
-        # Lazy import triage runner to avoid hard dependency unless needed
         try:
-            try:
-                # prefer local import
-                from triage_pipeline import run_pipeline as run_triage
-            except Exception:
-                from voiceguard_ai.nlp.triage_pipeline import run_pipeline as run_triage
+            from nlp.pipeline import run_pipeline
         except Exception:
-            run_triage = None
-
-        # Filter out posts flagged by triage
-        filtered_posts: List[Dict[str, Any]] = []
-        for p in posts:
             try:
-                if p.get("image_url") and run_triage:
-                    triage_res = run_triage(p.get("image_url"))
-                    verdict = triage_res.get("verdict")
-                    reason = triage_res.get("reasoning") or triage_res.get("reason")
-                    # If flagged, save to misinformation log and skip
-                    if verdict != "VERIFIED_REAL":
-                        try:
-                            from .memory_store import save_flagged
-
-                            save_flagged(p, reason or "triage flagged")
-                        except Exception:
-                            logger.exception("Failed to save flagged post")
-                        continue
-                filtered_posts.append(p)
+                from voiceguard_ai.nlp.pipeline import run_pipeline
             except Exception:
-                logger.exception("Triage failure for post: %s", p.get("id"))
+                logger.exception("[NLP] Could not import run_pipeline")
+                return {
+                    "disaster_type": "None",
+                    "location": "Unknown",
+                    "severity": "LOW",
+                    "advice": "Pipeline not available.",
+                    "posts_analyzed": 0,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "source": source,
+                }
 
-        # Build result from filtered posts (preserve prior behaviour)
-        high_posts = [p for p in filtered_posts if _is_high(p.get("text", ""))]
-        if high_posts:
-            selected = random.choice(high_posts)
-            logger.info("[NLP] Mock pick: %s", selected.get("id", "unknown"))
-        elif filtered_posts:
-            selected = random.choice(filtered_posts)
-            logger.info("[NLP] Mock pick fallback: %s", selected.get("id", "unknown"))
-        else:
-            logger.warning("[NLP] No posts left after triage/filters")
-            return {
-                "disaster_type": "None",
-                "location": "Unknown",
-                "severity": "LOW",
-                "advice": "No posts available after triage.",
-                "posts_analyzed": 0,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "source": source,
-            }
-
-        # Compose mock result based on the selected post
-        result = {
-            "disaster_type": "Flood",
-            "location": selected.get("location", "Mangalore"),
-            "severity": "HIGH" if _is_high(selected.get("text", "")) else "LOW",
-            "advice": "Evacuate low-lying areas immediately. Call NDRF: 011-24363260",
-            "posts_analyzed": len(filtered_posts),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "source": source,
-        }
+        # run in thread
+        result = await loop.run_in_executor(None, lambda: run_pipeline(source=source, voice_query=query))
         return result
     except Exception:
-        logger.exception("[NLP] Mock run failed")
+        logger.exception("[NLP] run_nlp_check failed")
         return {
             "disaster_type": "None",
             "location": "Unknown",
             "severity": "LOW",
-            "advice": "Mock NLP failed.",
+            "advice": "NLP check failed.",
             "posts_analyzed": 0,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "source": source,
         }
+
+
+def parse_voice_query(query: str) -> str:
+    """Simple intent detection for voice queries.
+
+    Returns one of: what_to_do, which_areas, how_many, how_bad, general
+    """
+    if not query:
+        return "general"
+    q = query.lower()
+    if any(kw in q for kw in ["what to do", "what should i do", "advice", "how to"]):
+        return "what_to_do"
+    if any(kw in q for kw in ["which areas", "which areas are", "which places", "where are"]):
+        return "which_areas"
+    if any(kw in q for kw in ["how many", "how many reports", "count", "reports"]):
+        return "how_many"
+    if any(kw in q for kw in ["how bad", "severity", "how severe", "danger"]):
+        return "how_bad"
+    return "general"
 
 
 def verify_image(image_url: str) -> Dict[str, Any]:

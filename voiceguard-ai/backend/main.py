@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .memory_store import get_history, get_result, save_result
-from .nlp_connector import run_nlp_check
+from .nlp_connector import run_nlp_check, parse_voice_query
 from .scheduler import init_scheduler
 from .nlp_connector import verify_image as verify_image_fn
 from .memory_store import get_flagged_log
@@ -28,6 +28,12 @@ app.add_middleware(
 
 class VoiceCheckRequest(BaseModel):
     query: str
+
+
+class ManualAlertRequest(BaseModel):
+    disaster_type: str
+    location: str
+    severity: str
 
 
 class ImageVerifyRequest(BaseModel):
@@ -88,16 +94,31 @@ async def check_now() -> Dict[str, Any]:
 @app.post("/voice-check")
 async def voice_check(payload: VoiceCheckRequest) -> Dict[str, Any]:
     try:
-        result = await run_nlp_check(source="voice")
+        query = (payload.query or "").strip()
+        intent = parse_voice_query(query)
+        result = await run_nlp_check(source="voice", query=query if query else None)
         save_result(result)
         await manager.broadcast(result)
-        voice_response = (
-            f"Disaster alert: {result.get('disaster_type')} detected in "
-            f"{result.get('location')}. Severity: {result.get('severity')}. "
-            f"{result.get('advice')}"
-        )
+
+        # Build voice response based on intent
+        if intent == "what_to_do":
+            voice_text = result.get("advice")
+        elif intent == "which_areas":
+            areas = result.get("all_locations") or []
+            voice_text = "Affected areas: " + (", ".join(areas) if areas else "none")
+        elif intent == "how_many":
+            voice_text = f"I analyzed {result.get('posts_analyzed', 0)} reports."
+        elif intent == "how_bad":
+            voice_text = f"Severity is {result.get('severity')}. {result.get('advice')}"
+        else:
+            voice_text = (
+                f"Disaster alert: {result.get('disaster_type')} detected in {result.get('location')}. "
+                f"Severity: {result.get('severity')}. {result.get('advice')}"
+            )
+
         response = dict(result)
-        response["voice_response"] = voice_response
+        response["voice_response"] = voice_text
+        response["intent_detected"] = intent
         return response
     except Exception:
         logger.exception("Voice check failed")
@@ -138,6 +159,69 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     except Exception:
         logger.exception("WebSocket error")
         await manager.disconnect(websocket)
+
+
+@app.post("/manual-alert")
+async def manual_alert(payload: ManualAlertRequest) -> Dict[str, Any]:
+    try:
+        result = {
+            "disaster_type": payload.disaster_type,
+            "location": payload.location,
+            "severity": payload.severity,
+            "advice": payload.severity and ("Evacuate immediately" if payload.severity == "HIGH" else "Monitor situation"),
+            "posts_analyzed": 0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source": "manual",
+        }
+        save_result(result)
+        await manager.broadcast(result)
+        # Trigger SMS
+        try:
+            from .sms import send_sms_alert
+
+            send_sms_alert(payload.severity, payload.location, result.get("advice", ""))
+        except Exception:
+            logger.exception("Failed to send manual SMS alert")
+        return {"status": "ok", "result": result}
+    except Exception:
+        logger.exception("Manual alert failed")
+        return {"error": "Manual alert failed"}
+
+
+@app.get("/sources-status")
+async def sources_status() -> Dict[str, Any]:
+    status = {"reddit": {"status": "unknown", "count": 0}, "rss": {"status": "unknown", "count": 0}, "simulated": {"status": "unknown", "count": 0}}
+    try:
+        # attempt lightweight probe of scrapers
+        try:
+            from nlp.scraper import scrape_reddit, scrape_rss, load_simulated
+        except Exception:
+            from voiceguard_ai.nlp.scraper import scrape_reddit, scrape_rss, load_simulated
+
+        try:
+            r = scrape_reddit()
+            status["reddit"]["status"] = "connected" if r else "no-data"
+            status["reddit"]["count"] = len(r)
+        except Exception:
+            status["reddit"]["status"] = "error"
+
+        try:
+            r = scrape_rss()
+            status["rss"]["status"] = "connected" if r else "no-data"
+            status["rss"]["count"] = len(r)
+        except Exception:
+            status["rss"]["status"] = "error"
+
+        try:
+            r = load_simulated()
+            status["simulated"]["status"] = "loaded" if r else "empty"
+            status["simulated"]["count"] = len(r)
+        except Exception:
+            status["simulated"]["status"] = "error"
+
+    except Exception:
+        logger.exception("Sources status check failed")
+    return status
 
 
 @app.post("/verify-image")
