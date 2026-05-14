@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+apscheduler
+praw
+feedparser
+transformers
+spacy
+twilio
+python-dotenv
+requests
+websockets

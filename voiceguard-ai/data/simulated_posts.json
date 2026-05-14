@@ -1,0 +1,122 @@
+[
+  {
+    "id": "sim_001",
+    "text": "SOS in Mangalore, homes near the river are flooded and people are stranded on rooftops.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T06:30:00Z"
+  },
+  {
+    "id": "sim_002",
+    "text": "Heavy rain in Udupi causing waterlogging and road blocked near the bus stand.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T06:45:00Z"
+  },
+  {
+    "id": "sim_003",
+    "text": "Cyclone warning issued for Coastal Karnataka, evacuate low lying areas in Mangaluru.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T07:00:00Z"
+  },
+  {
+    "id": "sim_004",
+    "text": "Light rain in Mangalore this morning, minor puddles but no major issues.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T07:10:00Z"
+  },
+  {
+    "id": "sim_005",
+    "text": "Fire reported in a warehouse on the outskirts of Udupi, emergency services on site.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T07:15:00Z"
+  },
+  {
+    "id": "sim_006",
+    "text": "Residents in Mangaluru say they are trapped due to sudden landslide near the highway.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T07:20:00Z"
+  },
+  {
+    "id": "sim_007",
+    "text": "Minor tremor felt in Udupi district, no damage reported yet.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T07:30:00Z"
+  },
+  {
+    "id": "sim_008",
+    "text": "Rescue teams dispatched as families are stranded near Mangalore river banks.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T07:35:00Z"
+  },
+  {
+    "id": "sim_009",
+    "text": "Road blocked in Udupi after heavy rain last night.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T07:40:00Z"
+  },
+  {
+    "id": "sim_010",
+    "text": "Coastal Karnataka on alert as cyclone winds intensify, evacuate coastal homes.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T07:45:00Z"
+  },
+  {
+    "id": "sim_011",
+    "text": "Emergency services report stranded boats near Mangalore harbor after rough sea.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T07:50:00Z"
+  },
+  {
+    "id": "sim_012",
+    "text": "Light drizzle in Udupi, traffic moving slowly but normal.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T08:00:00Z"
+  },
+  {
+    "id": "sim_013",
+    "text": "Firefighters control small fire in a shop in Mangaluru market area.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T08:05:00Z"
+  },
+  {
+    "id": "sim_014",
+    "text": "Rescue and relief camps set up in Udupi as rain continues.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T08:10:00Z"
+  },
+  {
+    "id": "sim_015",
+    "text": "People requested to evacuate low lying areas of Mangalore due to rising water level.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T08:15:00Z"
+  },
+  {
+    "id": "sim_016",
+    "text": "Minor landslide cleared on coastal highway near Udupi, traffic restored.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T08:20:00Z"
+  },
+  {
+    "id": "sim_017",
+    "text": "SOS call from Mangaluru suburb, families trapped after flash flood.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T08:25:00Z"
+  },
+  {
+    "id": "sim_018",
+    "text": "Waterlogging near Udupi railway station, buses diverted.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T08:30:00Z"
+  },
+  {
+    "id": "sim_019",
+    "text": "IMD issues alert for Coastal Karnataka, heavy rain expected tonight.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T08:35:00Z"
+  },
+  {
+    "id": "sim_020",
+    "text": "Evacuation underway in Mangaluru coastal wards, storm surge risk high.",
+    "source": "simulated",
+    "timestamp": "2026-05-14T08:40:00Z"
+  }
+]

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VoiceGuard AI Dashboard</title>
+  <style>
+    :root {
+      --bg: #0b0f1a;
+      --panel: #141b2d;
+      --accent: #f26c4f;
+      --accent-2: #33c7a7;
+      --text: #eef2ff;
+      --muted: #9aa5c1;
+      --low: #3ddc84;
+      --med: #f6c343;
+      --high: #ff5c5c;
+      --border: #27304a;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #111a35 0%, #0b0f1a 55%, #070a12 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 24px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10, 14, 24, 0.6);
+      backdrop-filter: blur(8px);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 1px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--med);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 24px;
+      padding: 28px 32px;
+      flex: 1;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .risk-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .risk-badge.low { background: rgba(61, 220, 132, 0.15); color: var(--low); }
+    .risk-badge.medium { background: rgba(246, 195, 67, 0.15); color: var(--med); }
+    .risk-badge.high { background: rgba(255, 92, 92, 0.18); color: var(--high); }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      text-align: left;
+    }
+
+    .stat-card h3 {
+      margin: 0 0 6px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .stat-card p {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .trigger-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .tag {
+      padding: 6px 10px;
+      border-radius: 12px;
+      background: rgba(242, 108, 79, 0.12);
+      color: var(--accent);
+      font-size: 12px;
+    }
+
+    .voice-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .voice-btn {
+      background: linear-gradient(120deg, var(--accent), #ffb347);
+      border: none;
+      color: #0b0f1a;
+      padding: 14px 18px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .voice-btn:hover { transform: translateY(-2px); }
+
+    .box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 80px;
+      color: var(--muted);
+    }
+
+    .alert-log {
+      grid-column: 1 / -1;
+      background: rgba(20, 27, 45, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px 22px;
+    }
+
+    .log-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(39, 48, 74, 0.6);
+      font-size: 14px;
+    }
+
+    .log-item:last-child { border-bottom: none; }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>VoiceGuard AI - AVINYA 2026</h1>
+    <div class="status">
+      <span class="status-dot" id="connDot"></span>
+      <span id="connStatus">Connecting...</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div id="riskBadge" class="risk-badge low">LOW RISK</div>
+      <h2 id="headline">Monitoring Coastal Karnataka</h2>
+      <p id="subline" style="color: var(--muted);">Last update: --</p>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <h3>Disaster Type</h3>
+          <p id="statType">None</p>
+        </div>
+        <div class="stat-card">
+          <h3>Location</h3>
+          <p id="statLocation">--</p>
+        </div>
+        <div class="stat-card">
+          <h3>Posts Analyzed</h3>
+          <p id="statPosts">0</p>
+        </div>
+      </div>
+
+      <div class="trigger-tags" id="triggerTags"></div>
+    </section>
+
+    <section class="panel voice-panel">
+      <h2>Voice Agent</h2>
+      <button class="voice-btn" id="voiceBtn">Tap to Speak</button>
+      <div>
+        <h3>Transcript</h3>
+        <div class="box" id="transcriptBox">--</div>
+      </div>
+      <div>
+        <h3>Agent Response</h3>
+        <div class="box" id="responseBox">--</div>
+      </div>
+    </section>
+
+    <section class="alert-log">
+      <h2>Alert Log</h2>
+      <div id="logList"></div>
+    </section>
+  </main>
+
+  <script>
+    const connDot = document.getElementById("connDot");
+    const connStatus = document.getElementById("connStatus");
+    const riskBadge = document.getElementById("riskBadge");
+    const statType = document.getElementById("statType");
+    const statLocation = document.getElementById("statLocation");
+    const statPosts = document.getElementById("statPosts");
+    const subline = document.getElementById("subline");
+    const triggerTags = document.getElementById("triggerTags");
+    const transcriptBox = document.getElementById("transcriptBox");
+    const responseBox = document.getElementById("responseBox");
+    const logList = document.getElementById("logList");
+    const voiceBtn = document.getElementById("voiceBtn");
+
+    const ws = new WebSocket("ws://localhost:8000/ws/dashboard");
+
+    ws.onopen = () => {
+      connDot.style.background = "var(--accent-2)";
+      connStatus.textContent = "Live";
+    };
+
+    ws.onclose = () => {
+      connDot.style.background = "var(--high)";
+      connStatus.textContent = "Disconnected";
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      updateDashboard(data);
+    };
+
+    function updateDashboard(data) {
+      const severity = (data.severity || "LOW").toUpperCase();
+      riskBadge.textContent = `${severity} RISK`;
+      riskBadge.className = `risk-badge ${severity === "HIGH" ? "high" : severity === "MEDIUM" ? "medium" : "low"}`;
+      statType.textContent = data.disaster_type || "None";
+      statLocation.textContent = data.location || "--";
+      statPosts.textContent = data.posts_analyzed || 0;
+      subline.textContent = `Last update: ${new Date(data.timestamp).toLocaleString()}`;
+
+      const tags = [data.disaster_type, data.location, data.severity].filter(Boolean);
+      triggerTags.innerHTML = "";
+      tags.forEach((tag) => {
+        const el = document.createElement("span");
+        el.className = "tag";
+        el.textContent = tag;
+        triggerTags.appendChild(el);
+      });
+
+      const item = document.createElement("div");
+      item.className = "log-item";
+      item.innerHTML = `<span>${data.timestamp}</span><span>${data.source || "auto"} - ${data.disaster_type}</span>`;
+      logList.prepend(item);
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+    if (recognition) {
+      recognition.lang = "en-IN";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+    }
+
+    voiceBtn.addEventListener("click", () => {
+      if (!recognition) {
+        alert("Speech recognition not supported in this browser.");
+        return;
+      }
+      recognition.start();
+    });
+
+    if (recognition) {
+      recognition.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript;
+        transcriptBox.textContent = transcript;
+        const response = await fetch("http://localhost:8000/voice-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: transcript })
+        });
+        const data = await response.json();
+        responseBox.textContent = data.advice || "No response";
+        speak(data.advice || "No response");
+        updateDashboard(data);
+      };
+    }
+
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-IN";
+      window.speechSynthesis.speak(utterance);
+    }
+  </script>
+</body>
+</html>
