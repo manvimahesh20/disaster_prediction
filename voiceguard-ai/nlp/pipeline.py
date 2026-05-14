@@ -8,13 +8,27 @@ from typing import Any, Dict, List, Optional
 import feedparser
 import praw
 import spacy
-from transformers import pipeline as hf_pipeline
+
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    print("Run: python -m spacy download en_core_web_sm")
+    nlp = None
 
 from backend.sms import send_sms_alert
 
 logger = logging.getLogger("voiceguard")
 
-LABELS = ["Flood", "Cyclone", "Fire", "Earthquake", "Landslide", "None"]
+DISASTER_LABELS = [
+    "flood",
+    "cyclone",
+    "earthquake",
+    "landslide",
+    "wildfire",
+    "storm",
+    "tsunami",
+    "not a disaster",
+]
 
 SEVERITY_KEYWORDS = {
     "HIGH": ["sos", "evacuate", "stranded", "trapped", "emergency", "collapse"],
@@ -28,19 +42,157 @@ LOCATION_KEYWORDS = {
     "Coastal Karnataka": ["coastal karnataka", "dakshina kannada", "udupi district"],
 }
 
+COASTAL_KARNATAKA_LOCATIONS = {
+    "mangalore":        "Mangalore, Dakshina Kannada",
+    "udupi":            "Udupi",
+    "dakshina kannada": "Dakshina Kannada",
+    "kundapur":         "Kundapur, Udupi",
+    "manipal":          "Manipal, Udupi",
+    "karwar":           "Karwar, Uttara Kannada",
+    "uttara kannada":   "Uttara Kannada",
+    "coastal karnataka":"Coastal Karnataka",
+    "karnataka":        "Karnataka",
+    "kerala":           "Kerala",
+    "india":            "India",
+}
+
 ADVICE_BY_SEVERITY = {
     "HIGH": "Seek immediate safety and follow official evacuation guidance.",
     "MEDIUM": "Avoid travel in affected zones and monitor official updates.",
     "LOW": "Stay alert and keep an emergency kit ready.",
 }
 
-# Simple keyword -> label map used as a fast fallback before calling the HF model
+# Severity keyword sets (module-level constants)
+HIGH_KEYWORDS = [
+    "sos", "evacuate", "evacuation", "stranded", "rescue",
+    "trapped", "collapse", "collapsed", "critical", "emergency",
+    "mayday", "helpme", "deaths", "killed", "missing persons",
+    "immediate danger", "life threatening", "need help urgently",
+]
+
+MEDIUM_KEYWORDS = [
+    "waterlogging", "water logging", "road blocked", "blocked road",
+    "flooded", "flooding", "overflowing", "overflow", "submerged",
+    "cyclone", "landslide", "warning issued", "red alert",
+    "orange alert", "affected", "damaged", "disrupted",
+    "power outage", "bridge closed", "highway closed",
+]
+
+LOW_KEYWORDS = [
+    "light rain", "drizzle", "slight rain", "advisory",
+    "yellow alert", "watch", "caution", "forecast",
+    "possibility of rain", "cloudy", "moderate rain",
+    "weather update", "IMD alert", "be prepared",
+]
+
+
+def score_severity(text: str) -> dict:
+    """Score severity by keyword matching.
+
+    Returns a dict with keys: level, score, color, matched_keywords,
+    should_alert, action. Always returns all keys.
+    """
+    default = {
+        "level": "NONE",
+        "score": 0,
+        "color": "green",
+        "matched_keywords": [],
+        "should_alert": False,
+        "action": "No action required. Continue monitoring.",
+    }
+
+    try:
+        if not text or len(text.strip()) < 3:
+            return default
+
+        txt = text.lower()
+
+        # helper: check presence of keyword allowing simple plural forms
+        def contains_keyword(hay: str, needle: str) -> bool:
+            if needle in hay:
+                return True
+            # token-aware fallback: match keyword word sequence allowing simple plural
+            hay_tokens = re.findall(r"\w+", hay)
+            needle_tokens = re.findall(r"\w+", needle)
+            if not needle_tokens:
+                return False
+            for i in range(0, len(hay_tokens) - len(needle_tokens) + 1):
+                ok = True
+                for j, kt in enumerate(needle_tokens):
+                    t = hay_tokens[i + j]
+                    if t == kt:
+                        continue
+                    # allow simple plural match (roads <-> road)
+                    if t.endswith("s") and t[:-1] == kt:
+                        continue
+                    if kt.endswith("s") and kt[:-1] == t:
+                        continue
+                    ok = False
+                    break
+                if ok:
+                    return True
+            return False
+
+        # Check HIGH
+        high_matches: List[str] = []
+        for kw in HIGH_KEYWORDS:
+            if contains_keyword(txt, kw):
+                if kw not in high_matches:
+                    high_matches.append(kw)
+        if high_matches:
+            return {
+                "level": "HIGH",
+                "score": 3,
+                "color": "red",
+                "matched_keywords": high_matches,
+                "should_alert": True,
+                "action": "Trigger immediate SMS alert and voice broadcast. Notify NDRF.",
+            }
+
+        # Check MEDIUM
+        med_matches: List[str] = []
+        for kw in MEDIUM_KEYWORDS:
+            if contains_keyword(txt, kw):
+                if kw not in med_matches:
+                    med_matches.append(kw)
+        if med_matches:
+            return {
+                "level": "MEDIUM",
+                "score": 2,
+                "color": "orange",
+                "matched_keywords": med_matches,
+                "should_alert": True,
+                "action": "Send SMS warning to registered users. Update dashboard.",
+            }
+
+        # Check LOW
+        low_matches: List[str] = []
+        for kw in LOW_KEYWORDS:
+            if contains_keyword(txt, kw):
+                if kw not in low_matches:
+                    low_matches.append(kw)
+        if low_matches:
+            return {
+                "level": "LOW",
+                "score": 1,
+                "color": "yellow",
+                "matched_keywords": low_matches,
+                "should_alert": False,
+                "action": "Log advisory. Monitor for escalation.",
+            }
+
+        return default
+    except Exception:
+        logger.exception("score_severity error")
+        return default
+
+# Simple keyword -> label map (lowercase keys)
 KEYWORD_LABEL_MAP = {
-    "Flood": ["flood", "flooding", "flash flood", "inundat", "river overflow"],
-    "Cyclone": ["cyclone", "storm", "landfall", "windstorm", "cyclonic"],
-    "Earthquake": ["earthquake", "tremor", "aftershock", "seismic"],
-    "Landslide": ["landslide", "mudslide", "slope failure"],
-    "Fire": ["fire", "wildfire", "blaze", "burning"],
+    "flood": ["flood", "flooding", "flash flood", "inundat", "river overflow"],
+    "cyclone": ["cyclone", "storm", "landfall", "windstorm", "cyclonic"],
+    "earthquake": ["earthquake", "tremor", "aftershock", "seismic"],
+    "landslide": ["landslide", "mudslide", "slope failure"],
+    "wildfire": ["fire", "wildfire", "blaze", "burning"],
 }
 
 
@@ -63,7 +215,14 @@ class PipelineState:
 
     def classifier(self):
         if self._classifier is None:
-            self._classifier = hf_pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+            try:
+                # Lazy import to avoid heavy dependency at module import time
+                from sentence_transformers import CrossEncoder
+
+                self._classifier = CrossEncoder("cross-encoder/nli-deberta-v3-large")
+            except Exception:
+                logger.exception("Failed to load CrossEncoder model")
+                self._classifier = None
         return self._classifier
 
     def nlp(self):
@@ -154,25 +313,46 @@ def _dedupe(posts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return result
 
 
-def _classify_disaster(texts: List[str]) -> str:
-    if not texts:
-        return "None"
-    # Fast keyword-based classification first
-    joined_full = " ".join(texts).lower()
-    for label, keywords in KEYWORD_LABEL_MAP.items():
-        for kw in keywords:
-            if kw in joined_full:
-                return label
+def classify_disaster(text: str) -> Dict[str, Any]:
+    """Classify a single text using CrossEncoder NLI model.
 
-    # Fallback to model-based zero-shot classification
+    Returns a dict with keys: disaster_type, confidence, is_disaster, all_scores.
+    """
+    default = {"disaster_type": "none", "confidence": 0.0, "is_disaster": False, "all_scores": {l: 0.0 for l in DISASTER_LABELS}}
     try:
-        classifier = _state.classifier()
-        joined = joined_full[:1500]
-        output = classifier(joined, LABELS)
-        return output.get("labels", ["None"])[0]
+        if not text:
+            return default
+
+        txt = text[:512]
+        pairs = [[txt, f"This text is about a {label}."] for label in DISASTER_LABELS]
+        clf = _state.classifier()
+        if clf is None:
+            return default
+
+        preds = clf.predict(pairs)
+        scores = {}
+        for label, arr in zip(DISASTER_LABELS, preds):
+            try:
+                entail = float(arr[1])
+            except Exception:
+                # fallback to last index if unexpected
+                entail = float(arr[-1]) if len(arr) > 0 else 0.0
+            scores[label] = float(entail)
+
+        top_label = max(scores, key=scores.get)
+        top_score = scores[top_label]
+        is_dis = (top_label != "not a disaster") and (top_score > 0.5)
+        return {"disaster_type": top_label if is_dis else "none", "confidence": round(top_score, 3), "is_disaster": bool(is_dis), "all_scores": scores}
     except Exception:
-        logger.exception("Classification failed")
-        return "None"
+        logger.exception("CrossEncoder classification failed")
+        return default
+
+
+def _classify_disaster(texts: List[str]) -> str:
+    """Compatibility wrapper: accepts list of texts and returns top label string (or 'none')."""
+    joined = " ".join(texts)
+    res = classify_disaster(joined)
+    return res.get("disaster_type", "none")
 
 
 def _extract_location(texts: List[str]) -> str:
@@ -194,6 +374,80 @@ def _extract_location(texts: List[str]) -> str:
         logger.exception("NER failed")
 
     return "Unknown"
+
+
+def extract_location(text: str) -> dict:
+    """Extract locations using spaCy NER and map to target regions.
+
+    Returns a dict with keys (always present):
+      - locations_found: list of raw entity strings spaCy found
+      - matched_targets: list of matched keys from COASTAL_KARNATAKA_LOCATIONS
+      - canonical_names: list of mapped canonical names
+      - is_target_region: bool
+      - primary_location: first canonical name or 'Unknown region'
+
+    Edge cases:
+      - If `nlp` is None or text too short -> return empty-like result with is_target_region False
+      - spaCy errors are caught and logged
+    """
+    default = {
+        "locations_found": [],
+        "matched_targets": [],
+        "canonical_names": [],
+        "is_target_region": False,
+        "primary_location": "Unknown region",
+    }
+
+    if nlp is None:
+        return default
+
+    if not text or len(text.strip()) < 3:
+        return default
+
+    try:
+        doc = nlp(text)
+    except Exception:
+        logger.exception("spaCy NER failed")
+        return default
+
+    raw_entities: List[str] = []
+    for ent in doc.ents:
+        if ent.label_ in {"GPE", "LOC"}:
+            ent_text = ent.text.strip()
+            if ent_text:
+                raw_entities.append(ent_text)
+
+    # Deduplicate preserving order (case-insensitive)
+    deduped: List[str] = []
+    seen = set()
+    for e in raw_entities:
+        key = e.strip().lower()
+        if key not in seen:
+            seen.add(key)
+            deduped.append(e.strip())
+
+    matched_targets: List[str] = []
+    canonical_names: List[str] = []
+    seen_matched = set()
+    for e in deduped:
+        e_clean = e.lower()
+        for k, v in COASTAL_KARNATAKA_LOCATIONS.items():
+            if k in e_clean:
+                if k not in seen_matched:
+                    seen_matched.add(k)
+                    matched_targets.append(k)
+                    canonical_names.append(v)
+
+    is_target = len(matched_targets) > 0
+    primary = canonical_names[0] if canonical_names else "Unknown region"
+
+    return {
+        "locations_found": deduped,
+        "matched_targets": matched_targets,
+        "canonical_names": canonical_names,
+        "is_target_region": is_target,
+        "primary_location": primary,
+    }
 
 
 def _score_severity(texts: List[str]) -> str:

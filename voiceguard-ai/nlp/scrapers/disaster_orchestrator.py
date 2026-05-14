@@ -61,7 +61,6 @@ def run_once() -> Dict[str, int]:
 
     executor = ThreadPoolExecutor(max_workers=int(os.environ.get("SCRAPER_WORKERS", "6")))
     futures_map = {}
-
     # RSS
     rss = os.environ.get("RSS_FEEDS")
     if rss:
