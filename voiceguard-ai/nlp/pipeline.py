@@ -34,11 +34,32 @@ ADVICE_BY_SEVERITY = {
     "LOW": "Stay alert and keep an emergency kit ready.",
 }
 
+# Simple keyword -> label map used as a fast fallback before calling the HF model
+KEYWORD_LABEL_MAP = {
+    "Flood": ["flood", "flooding", "flash flood", "inundat", "river overflow"],
+    "Cyclone": ["cyclone", "storm", "landfall", "windstorm", "cyclonic"],
+    "Earthquake": ["earthquake", "tremor", "aftershock", "seismic"],
+    "Landslide": ["landslide", "mudslide", "slope failure"],
+    "Fire": ["fire", "wildfire", "blaze", "burning"],
+}
+
 
 class PipelineState:
     def __init__(self) -> None:
         self._classifier = None
         self._nlp = None
+
+    def prewarm(self) -> None:
+        """Preload heavy models to reduce latency later."""
+        try:
+            _ = self.classifier()
+        except Exception:
+            # silently ignore model download/load failures here
+            pass
+        try:
+            _ = self.nlp()
+        except Exception:
+            pass
 
     def classifier(self):
         if self._classifier is None:
@@ -136,12 +157,19 @@ def _dedupe(posts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def _classify_disaster(texts: List[str]) -> str:
     if not texts:
         return "None"
+    # Fast keyword-based classification first
+    joined_full = " ".join(texts).lower()
+    for label, keywords in KEYWORD_LABEL_MAP.items():
+        for kw in keywords:
+            if kw in joined_full:
+                return label
 
-    classifier = _state.classifier()
+    # Fallback to model-based zero-shot classification
     try:
-        joined = " ".join(texts)[:1500]
+        classifier = _state.classifier()
+        joined = joined_full[:1500]
         output = classifier(joined, LABELS)
-        return output["labels"][0]
+        return output.get("labels", ["None"])[0]
     except Exception:
         logger.exception("Classification failed")
         return "None"
@@ -182,6 +210,9 @@ def _build_advice(severity: str) -> str:
 
 
 def run_pipeline(source: str = "auto", voice_query: Optional[str] = None) -> Dict[str, Any]:
+    # Pre-warm heavy models so classification doesn't block later
+    _state.prewarm()
+
     posts = []
     posts.extend(_scrape_reddit())
     posts.extend(_scrape_rss())
