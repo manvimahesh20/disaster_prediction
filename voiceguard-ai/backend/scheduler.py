@@ -1,10 +1,12 @@
-import asyncio
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from nlp.pipeline import run_pipeline
+from .memory_store import save_result
+from .nlp_connector import run_nlp_check
+from .sms import send_sms_alert
+
 
 logger = logging.getLogger("voiceguard")
 
@@ -24,14 +26,11 @@ def init_scheduler(manager: Any) -> None:
 async def _run_and_broadcast() -> None:
     try:
         result = await run_nlp_check(source="auto")
+        save_result(result)
         if _manager is not None:
             await _manager.broadcast(result)
+        if result.get("severity") in {"MEDIUM", "HIGH"}:
+            send_sms_alert(result.get("severity", ""), result.get("location", ""), result.get("advice", ""))
+        logger.info("[Scheduler] Check complete - severity: %s", result.get("severity"))
     except Exception:
         logger.exception("Scheduled NLP run failed")
-
-
-async def run_nlp_check(source: str = "auto", voice_query: Optional[str] = None) -> Dict[str, Any]:
-    loop = asyncio.get_event_loop()
-    # Run CPU-heavy pipeline in a thread to avoid blocking.
-    result = await loop.run_in_executor(None, run_pipeline, source, voice_query)
-    return result

@@ -6,7 +6,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .scheduler import init_scheduler, run_nlp_check
+from .memory_store import get_history, get_result, save_result
+from .nlp_connector import run_nlp_check
+from .scheduler import init_scheduler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voiceguard")
@@ -67,16 +69,56 @@ async def root() -> Dict[str, Any]:
 
 @app.get("/check-now")
 async def check_now() -> Dict[str, Any]:
-    result = await run_nlp_check(source="manual")
-    await manager.broadcast(result)
-    return result
+    try:
+        result = await run_nlp_check(source="manual")
+        save_result(result)
+        await manager.broadcast(result)
+        return result
+    except Exception:
+        logger.exception("Manual check failed")
+        return {"error": "Manual check failed"}
 
 
 @app.post("/voice-check")
 async def voice_check(payload: VoiceCheckRequest) -> Dict[str, Any]:
-    result = await run_nlp_check(source="voice", voice_query=payload.query)
-    await manager.broadcast(result)
-    return result
+    try:
+        result = await run_nlp_check(source="voice")
+        save_result(result)
+        await manager.broadcast(result)
+        voice_response = (
+            f"Disaster alert: {result.get('disaster_type')} detected in "
+            f"{result.get('location')}. Severity: {result.get('severity')}. "
+            f"{result.get('advice')}"
+        )
+        response = dict(result)
+        response["voice_response"] = voice_response
+        return response
+    except Exception:
+        logger.exception("Voice check failed")
+        return {"error": "Voice check failed"}
+
+
+@app.get("/history")
+async def history() -> Dict[str, Any]:
+    try:
+        return get_history()
+    except Exception:
+        logger.exception("History fetch failed")
+        return []
+
+
+@app.get("/status")
+async def status() -> Dict[str, Any]:
+    try:
+        result = get_result()
+        return {
+            "status": "ok",
+            "last_check": result.get("timestamp"),
+            "severity": result.get("severity", "UNKNOWN"),
+        }
+    except Exception:
+        logger.exception("Status fetch failed")
+        return {"status": "error"}
 
 
 @app.websocket("/ws/dashboard")

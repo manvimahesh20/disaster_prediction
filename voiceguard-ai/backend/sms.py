@@ -7,7 +7,8 @@ from twilio.rest import Client
 logger = logging.getLogger("voiceguard")
 
 ALERT_NUMBERS: List[str] = [
-    "+910000000000",
+    "+918861480372",
+    "+917760568702"
 ]
 
 
