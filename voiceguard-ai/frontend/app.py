@@ -9,7 +9,7 @@ from pathlib import Path
 
 st.set_page_config(page_title="VoiceGuard AI — Console", layout="wide")
 
-st.title("VoiceGuard AI — Operations Console")
+st.title("DisasterEye — Operations Console")
 
 # ---------- Mock data (copied from the React app) ----------
 MOCK_ALERTS = [
@@ -70,6 +70,45 @@ def fetch_history_once():
             return
         # Use last 50 entries
         new_alerts = hist[-50:]
+        # Normalize backend keys to UI-friendly shape
+        def _normalize(a):
+            try:
+                out = dict(a) if isinstance(a, dict) else {}
+                # ensure id
+                if not out.get("id"):
+                    ts = out.get("timestamp") or out.get("time") or ""
+                    out["id"] = f"alert_{ts}"
+                # posts_analyzed -> posts (UI expects 'posts')
+                if "posts_analyzed" in out and "posts" not in out:
+                    out["posts"] = int(out.get("posts_analyzed", 0) or 0)
+                # severity normalization
+                out["severity"] = (out.get("severity") or out.get("level") or "LOW").upper()
+                # disaster_type exists as-is
+                out["disaster_type"] = out.get("disaster_type") or out.get("type") or "Unknown"
+                # location
+                out["location"] = out.get("location") or out.get("primary_location") or "Unknown region"
+                # timestamp string
+                if out.get("timestamp"):
+                    out["timestamp"] = out.get("timestamp")
+                else:
+                    out["timestamp"] = __import__("datetime").datetime.now().__str__()
+                # sources: convert dict->list of labels for UI
+                src = out.get("sources") or {}
+                if isinstance(src, dict):
+                    parts = []
+                    for k, v in src.items():
+                        try:
+                            parts.append(f"{k}:{v}")
+                        except Exception:
+                            parts.append(str(k))
+                    out["sources"] = parts
+                # posts_flagged default
+                out["posts_flagged"] = int(out.get("posts_flagged", 0) or 0)
+                return out
+            except Exception:
+                return a
+
+        new_alerts = [_normalize(x) for x in new_alerts]
         old_ids = [a.get("id") for a in st.session_state.get("alerts", [])]
         new_ids = [a.get("id") for a in new_alerts]
         if new_ids != old_ids:
@@ -102,6 +141,81 @@ if "_poller_started" not in st.session_state:
     t = threading.Thread(target=_poller, daemon=True)
     t.start()
     st.session_state["_poller_started"] = True
+
+
+# WebSocket listener to receive broadcasts from backend (best-effort)
+def _ws_listener():
+    try:
+        import websocket
+    except Exception:
+        # websocket-client not installed; rely on polling
+        return
+
+    try:
+        ws_url = None
+        if backend_url:
+            ws_url = backend_url.rstrip("/").replace("http://", "ws://").replace("https://", "wss://") + "/ws/dashboard"
+        if not ws_url:
+            return
+
+        def on_message(ws, message):
+            try:
+                obj = json.loads(message)
+                # update session state safely
+                alerts = st.session_state.get("alerts", [])
+                # normalize incoming object similar to fetch_history_once
+                def _normalize_ws(a):
+                    try:
+                        out = dict(a) if isinstance(a, dict) else {}
+                        if not out.get("id"):
+                            ts = out.get("timestamp") or ""
+                            out["id"] = f"alert_{ts}"
+                        if "posts_analyzed" in out and "posts" not in out:
+                            out["posts"] = int(out.get("posts_analyzed", 0) or 0)
+                        out["severity"] = (out.get("severity") or "LOW").upper()
+                        out["disaster_type"] = out.get("disaster_type") or "Unknown"
+                        out["location"] = out.get("location") or out.get("primary_location") or "Unknown region"
+                        if isinstance(out.get("sources"), dict):
+                            parts = []
+                            for k, v in out.get("sources", {}).items():
+                                parts.append(f"{k}:{v}")
+                            out["sources"] = parts
+                        out["posts_flagged"] = int(out.get("posts_flagged", 0) or 0)
+                        return out
+                    except Exception:
+                        return a
+
+                alerts.append(_normalize_ws(obj))
+                st.session_state.alerts = alerts[-200:]
+                st.session_state.active = alerts[-1]
+                # trigger rerun to refresh UI
+                try:
+                    st.experimental_rerun()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        def on_error(ws, error):
+            pass
+
+        def on_close(ws, code, reason):
+            pass
+
+        def on_open(ws):
+            pass
+
+        ws = websocket.WebSocketApp(ws_url, on_message=on_message, on_error=on_error, on_close=on_close, on_open=on_open)
+        ws.run_forever()
+    except Exception:
+        pass
+
+
+if "_ws_started" not in st.session_state:
+    import threading
+    wst = threading.Thread(target=_ws_listener, daemon=True)
+    wst.start()
+    st.session_state["_ws_started"] = True
 
 
 # Sidebar: backend URL and probe
@@ -199,6 +313,27 @@ with col_main:
     m4.write("Last update")
     m4.write(active["timestamp"])
 
+    # Source breakdown
+    sources_breakdown = active.get("sources", [])
+    if sources_breakdown:
+        breakdown_text = " · ".join(sources_breakdown)
+        st.write(f"**Sources:** {breakdown_text}")
+    else:
+        st.write("**Sources:** simulated")
+
+    # Posts flagged
+    posts_flagged = active.get("posts_flagged", 0)
+    if posts_flagged > 0:
+        st.warning(f"⚠️ {posts_flagged} posts flagged as misinformation")
+
+    # All locations
+    all_locations = active.get("all_locations", [])
+    if all_locations:
+        locations_text = ", ".join(all_locations[:5])  # show first 5
+        if len(all_locations) > 5:
+            locations_text += f" +{len(all_locations)-5} more"
+        st.write(f"**Affected areas:** {locations_text}")
+
     # Radar (SVG)
     radar_svg = f"""
     <svg width='100%' height='300' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'>
@@ -292,7 +427,7 @@ with col_main:
         else:
             st.write("No image URL present in this item.")
         if st.button("Reload scraped items"):
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.write("No scraped items available.")
 
@@ -315,10 +450,7 @@ with col_side:
         if cols[i].button(s, key=f"sugg_{i}"):
             st.session_state.voiceQuery = s
             st.session_state.thinking = True
-            st.experimental_rerun()
-
-    st.session_state.voiceQuery = st.text_input("", value=st.session_state.voiceQuery, key="voice_input")
-    if st.button("Ask"):
+        st.rerun()
         q = st.session_state.voiceQuery.strip()
         if q:
             st.session_state.thinking = True
@@ -341,6 +473,28 @@ with col_side:
 
     intent = detect_intent(st.session_state.voiceQuery)
     st.write(f"Intent detected: **{intent}**")
+
+    # Show source breakdown if available
+    if st.session_state.voiceResp and "sources" in st.session_state.voiceResp:
+        sources = st.session_state.voiceResp.get("sources", [])
+        if sources:
+            breakdown = []
+            for src in ["gdacs", "reliefweb", "bluesky", "rss", "simulated"]:
+                # sources may be list of strings like 'gdacs:3' or dict-like; handle both
+                try:
+                    if isinstance(sources, dict):
+                        cnt = sources.get(src, 0)
+                        if cnt:
+                            breakdown.append(f"{src.capitalize()}: {cnt}")
+                    else:
+                        # list form
+                        cnt = sum(1 for s in sources if str(s).lower().startswith(src))
+                        if cnt:
+                            breakdown.append(f"{src.capitalize()}: {cnt}")
+                except Exception:
+                    continue
+            if breakdown:
+                st.write(" · ".join(breakdown))
     if st.session_state.thinking:
         # simulate processing
         time.sleep(0.7)
@@ -386,7 +540,7 @@ with col_side:
         st.write("Awaiting query · agent online")
 
     st.markdown("---")
-    now = datetime.utcnow()
+    now = datetime.datetime.now(datetime.UTC)
     st.write(f"Backend: {'ONLINE' if backend_ok else 'OFFLINE' if backend_ok is not None else 'N/A'} — UTC {now.strftime('%H:%M:%S')}")
 
     # Sidebar: Sources Status and Manual Alert
@@ -396,8 +550,20 @@ with col_side:
                 r = requests.get(backend_url.rstrip("/") + "/sources-status", timeout=3)
                 if r.ok:
                     status = r.json()
-                    for k, v in status.items():
-                        st.write(f"{k}: {v.get('status')} — {v.get('count')} posts")
+                    # Render ordered sources with friendly labels
+                    def _dot(ok):
+                        return "🟢" if ok else "🔴"
+
+                    s_g = status.get("gdacs", {})
+                    st.write(f"{_dot(s_g.get('status') in ('connected','no-data'))} GDACS (UN) — {s_g.get('count',0)} posts")
+                    s_r = status.get("reliefweb", {})
+                    st.write(f"{_dot(s_r.get('status') in ('connected','no-data'))} ReliefWeb (UN) — {s_r.get('count',0)} posts")
+                    s_b = status.get("bluesky", {})
+                    st.write(f"{_dot(s_b.get('status') in ('connected','no-data'))} Bluesky — {s_b.get('count',0)} posts")
+                    s_rs = status.get("rss", {})
+                    st.write(f"{_dot(s_rs.get('status') in ('connected','no-data'))} RSS News — {s_rs.get('count',0)} posts")
+                    s_sim = status.get("simulated", {})
+                    st.write(f"🟢 Simulated — {s_sim.get('count',0)} posts (safety net)")
                 else:
                     st.write("Could not fetch sources status")
             else:

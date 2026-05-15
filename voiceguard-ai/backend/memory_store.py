@@ -60,7 +60,7 @@ def save_flagged(post: Dict[str, object], reason: str) -> None:
     try:
         entry = dict(post)
         entry["flagged_reason"] = reason
-        entry["flagged_timestamp"] = __import__("datetime").datetime.utcnow().isoformat()
+        entry["flagged_timestamp"] = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
         with _lock:
             _misinformation_log.append(entry)
             # keep the log bounded

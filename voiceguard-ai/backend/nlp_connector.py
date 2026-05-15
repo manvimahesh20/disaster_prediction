@@ -59,25 +59,32 @@ async def run_nlp_check(source: str = "auto", query: str = None) -> Dict[str, An
     try:
         loop = asyncio.get_event_loop()
         try:
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
             from nlp.pipeline import run_pipeline
         except Exception:
-            try:
-                from voiceguard_ai.nlp.pipeline import run_pipeline
-            except Exception:
-                logger.exception("[NLP] Could not import run_pipeline")
-                return {
-                    "disaster_type": "None",
-                    "location": "Unknown",
-                    "severity": "LOW",
-                    "advice": "Pipeline not available.",
-                    "posts_analyzed": 0,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "source": source,
-                }
+            logger.exception("[NLP] Could not import run_pipeline")
+            return {
+                "disaster_type": "None",
+                "location": "Unknown",
+                "severity": "LOW",
+                "advice": "Pipeline not available.",
+                "posts_analyzed": 0,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "source": source,
+            }
 
         # run in thread
         result = await loop.run_in_executor(None, lambda: run_pipeline(source=source, voice_query=query))
-        return result
+
+        # Post-process: make risk decision, persist and optionally send SMS
+        try:
+            processed = _post_process_result(result, source=source)
+            return processed
+        except Exception:
+            logger.exception("[NLP] post-processing failed")
+            return result
     except Exception:
         logger.exception("[NLP] run_nlp_check failed")
         return {
@@ -117,7 +124,10 @@ def verify_image(image_url: str) -> Dict[str, Any]:
     """
     try:
         try:
-            from triage_pipeline import run_pipeline as run_triage
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+            from nlp.triage_pipeline import run_pipeline as run_triage
         except Exception:
             from voiceguard_ai.nlp.triage_pipeline import run_pipeline as run_triage
         res = run_triage(image_url)
@@ -130,3 +140,64 @@ def verify_image(image_url: str) -> Dict[str, Any]:
     except Exception:
         logger.exception("verify_image failed")
         return {"verdict": "FLAGGED", "confidence": 0.5, "reasoning": "triage error", "sources_found": 0}
+
+
+def _post_process_result(result: Dict[str, Any], source: str = "auto") -> Dict[str, Any]:
+    """Apply Step 3 risk decision rules, save to memory store and trigger SMS when required.
+
+    This function mutates/enriches `result` and returns it.
+    """
+    try:
+        if not isinstance(result, dict):
+            logger.warning("[NLP] Invalid result type for post-processing")
+            return result
+
+        sev = (result.get("severity") or "LOW").upper()
+        # Build advice per spec
+        if sev == "HIGH":
+            advice = (
+                "Evacuate immediately. Move to higher ground. Avoid flooded roads. "
+                "Call NDRF: 011-24363260. Nearest relief center: check dashboard."
+            )
+        elif sev == "MEDIUM":
+            advice = (
+                "Stay indoors. Avoid coastal areas. Keep emergency kit ready. "
+                "Monitor updates on VoiceGuard dashboard."
+            )
+        else:
+            advice = "No immediate threat. Stay informed. Normal activities can continue."
+
+        result["advice"] = advice
+
+        # Save result to memory store
+        try:
+            from backend.memory_store import save_result
+
+            save_result(result)
+        except Exception:
+            logger.exception("[NLP] failed to save result to memory")
+
+        # SMS: only for MEDIUM or HIGH
+        try:
+                if sev in {"MEDIUM", "HIGH"}:
+                    try:
+                        from backend.sms import send_sms_alert
+
+                        # include posts_analyzed and disaster_type
+                        send_sms_alert(
+                            sev,
+                            result.get("location", "Unknown"),
+                            advice,
+                            int(result.get("posts_analyzed", 0)),
+                            result.get("disaster_type", "Unknown"),
+                        )
+                        logger.info("[SMS] send attempted for severity=%s", sev)
+                    except Exception:
+                        logger.exception("[SMS] failed to trigger send_sms_alert")
+        except Exception:
+            logger.exception("[NLP] SMS dispatch logic failed")
+
+        return result
+    except Exception:
+        logger.exception("[NLP] _post_process_result failed")
+        return result

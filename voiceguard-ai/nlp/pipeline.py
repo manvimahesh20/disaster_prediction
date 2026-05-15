@@ -6,14 +6,20 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import feedparser
-import praw
 import spacy
 
 try:
     nlp = spacy.load("en_core_web_sm")
 except OSError:
-    print("Run: python -m spacy download en_core_web_sm")
-    nlp = None
+    try:
+        # Attempt to download the small English model automatically
+        import spacy.cli
+        print("spaCy model en_core_web_sm not found — downloading now...")
+        spacy.cli.download("en_core_web_sm")
+        nlp = spacy.load("en_core_web_sm")
+    except Exception:
+        print("Failed to download/load en_core_web_sm. Run: python -m spacy download en_core_web_sm")
+        nlp = None
 
 from backend.sms import send_sms_alert
 
@@ -245,33 +251,7 @@ def _load_simulated_posts() -> List[Dict[str, Any]]:
         return []
 
 
-def _scrape_reddit() -> List[Dict[str, Any]]:
-    client_id = os.getenv("REDDIT_CLIENT_ID")
-    client_secret = os.getenv("REDDIT_CLIENT_SECRET")
-    user_agent = os.getenv("REDDIT_USER_AGENT")
-    if not client_id or not client_secret or not user_agent:
-        logger.warning("Reddit credentials missing, skipping Reddit scrape")
-        return []
 
-    reddit = praw.Reddit(client_id=client_id, client_secret=client_secret, user_agent=user_agent)
-    posts: List[Dict[str, Any]] = []
-    subreddits = ["india", "weather", "Kerala"]
-
-    for sub in subreddits:
-        try:
-            for submission in reddit.subreddit(sub).new(limit=25):
-                posts.append(
-                    {
-                        "id": f"reddit_{submission.id}",
-                        "text": submission.title + " " + (submission.selftext or ""),
-                        "source": f"reddit/{sub}",
-                        "timestamp": datetime.fromtimestamp(submission.created_utc, tz=timezone.utc).isoformat(),
-                    }
-                )
-        except Exception:
-            logger.exception("Reddit scrape failed for %s", sub)
-
-    return posts
 
 
 def _scrape_rss() -> List[Dict[str, Any]]:
@@ -314,37 +294,55 @@ def _dedupe(posts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def classify_disaster(text: str) -> Dict[str, Any]:
-    """Classify a single text using CrossEncoder NLI model.
+    """Classify a single text using HF zero-shot (facebook/bart-large-mnli) with
+    a keyword fallback.
 
-    Returns a dict with keys: disaster_type, confidence, is_disaster, all_scores.
+    Returns: {disaster_type, confidence, is_disaster, all_scores}
     """
     default = {"disaster_type": "none", "confidence": 0.0, "is_disaster": False, "all_scores": {l: 0.0 for l in DISASTER_LABELS}}
     try:
         if not text:
             return default
 
-        txt = text[:512]
-        pairs = [[txt, f"This text is about a {label}."] for label in DISASTER_LABELS]
-        clf = _state.classifier()
-        if clf is None:
-            return default
+        # Lazy load HF pipeline
+        try:
+            from transformers import pipeline as hf_pipeline
+        except Exception:
+            hf_pipeline = None
 
-        preds = clf.predict(pairs)
-        scores = {}
-        for label, arr in zip(DISASTER_LABELS, preds):
+        labels = ["Flood", "Cyclone", "Fire", "Earthquake", "Landslide", "None"]
+        txt = text[:1024]
+
+        # allow forcing no HF model for fast dev runs
+        if os.getenv("VG_NO_HF") == "1":
+            hf_pipeline = None
+
+        if hf_pipeline is not None:
             try:
-                entail = float(arr[1])
+                zclf = hf_pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+                out = zclf(txt, labels)
+                scores = {}
+                for lab, score in zip(out.get("labels", []), out.get("scores", [])):
+                    scores[lab.lower()] = float(score)
+                # pick best non-none
+                best_label = out.get("labels", [])[0].lower() if out.get("labels") else "none"
+                best_score = out.get("scores", [0.0])[0] if out.get("scores") else 0.0
+                if best_label == "none" or float(best_score) < 0.4:
+                    return {"disaster_type": "none", "confidence": round(float(best_score), 3), "is_disaster": False, "all_scores": scores}
+                return {"disaster_type": best_label, "confidence": round(float(best_score), 3), "is_disaster": True, "all_scores": scores}
             except Exception:
-                # fallback to last index if unexpected
-                entail = float(arr[-1]) if len(arr) > 0 else 0.0
-            scores[label] = float(entail)
+                logger.exception("[NLP] HF zero-shot failed, falling back to keywords")
 
-        top_label = max(scores, key=scores.get)
-        top_score = scores[top_label]
-        is_dis = (top_label != "not a disaster") and (top_score > 0.5)
-        return {"disaster_type": top_label if is_dis else "none", "confidence": round(top_score, 3), "is_disaster": bool(is_dis), "all_scores": scores}
+        # Keyword fallback
+        txt_low = txt.lower()
+        for k, variants in KEYWORD_LABEL_MAP.items():
+            for v in variants:
+                if v in txt_low:
+                    return {"disaster_type": k, "confidence": 0.6, "is_disaster": True, "all_scores": {k: 0.6}}
+
+        return default
     except Exception:
-        logger.exception("CrossEncoder classification failed")
+        logger.exception("classify_disaster failed")
         return default
 
 
@@ -373,7 +371,8 @@ def _extract_location(texts: List[str]) -> str:
     except Exception:
         logger.exception("NER failed")
 
-    return "Unknown"
+    # default to Karnataka when unknown as per system flow
+    return "Karnataka"
 
 
 def extract_location(text: str) -> dict:
@@ -474,7 +473,9 @@ def run_pipeline(source: str = "auto", voice_query: Optional[str] = None) -> Dic
     from .scraper import scrape_all
     try:
         # Pre-warm heavy models so classification doesn't block later
-        _state.prewarm()
+        # Allow skipping prewarm in dev via env var VG_SKIP_PREWARM=1
+        if os.getenv("VG_SKIP_PREWARM") != "1":
+            _state.prewarm()
     except Exception:
         pass
 
@@ -592,25 +593,52 @@ def run_pipeline(source: str = "auto", voice_query: Optional[str] = None) -> Dic
     posts_analyzed = len(included_posts)
     posts_flagged = flagged_count
     advice = _build_advice(highest_severity_level)
+    # Build sources breakdown
+    source_counts = {"gdacs": 0, "reliefweb": 0, "bluesky": 0, "rss": 0, "simulated": 0, "voice": 0, "other": 0}
+    for p in included_posts:
+        s = (p.get("source") or "").lower()
+        if s.startswith("gdacs") or s == "gdacs":
+            source_counts["gdacs"] += 1
+        elif s.startswith("reliefweb") or s == "reliefweb":
+            source_counts["reliefweb"] += 1
+        elif s.startswith("bluesky") or s == "bluesky":
+            source_counts["bluesky"] += 1
+        elif s.startswith("rss") or s == "rss":
+            source_counts["rss"] += 1
+        elif s == "simulated":
+            source_counts["simulated"] += 1
+        elif s == "voice":
+            source_counts["voice"] += 1
+        else:
+            source_counts["other"] += 1
 
     result = {
         "disaster_type": overall_type,
-        "location": highest_location or (list(locations_set)[0] if locations_set else "Unknown"),
+        "location": highest_location or (list(locations_set)[0] if locations_set else "Karnataka"),
         "severity": highest_severity_level,
         "advice": advice,
         "posts_analyzed": posts_analyzed,
         "posts_flagged": posts_flagged,
-        "sources": list(sources_set) or ["simulated"],
+        "sources": source_counts,
         "all_locations": list(locations_set),
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "source": source,
     }
 
-    # Send SMS for MEDIUM/HIGH
+    # Send SMS for MEDIUM/HIGH (include posts_analyzed and disaster_type when available)
     try:
         if result.get("severity") in {"MEDIUM", "HIGH"}:
-            send_sms_alert(result.get("severity"), result.get("location"), result.get("advice"))
+            try:
+                send_sms_alert(
+                    result.get("severity"),
+                    result.get("location"),
+                    result.get("advice"),
+                    int(result.get("posts_analyzed", 0)),
+                    result.get("disaster_type", "Unknown"),
+                )
+            except Exception:
+                logger.exception("[NLP] send_sms_alert failed")
     except Exception:
-        logger.exception("[NLP] send_sms_alert failed")
+        logger.exception("[NLP] send_sms_alert wrapper failed")
 
     return result

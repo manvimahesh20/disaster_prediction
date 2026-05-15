@@ -6,11 +6,16 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .memory_store import get_history, get_result, save_result
-from .nlp_connector import run_nlp_check, parse_voice_query
-from .scheduler import init_scheduler
-from .nlp_connector import verify_image as verify_image_fn
-from .memory_store import get_flagged_log
+import sys
+import os
+from datetime import datetime, timezone
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from memory_store import get_history, get_result, save_result
+from nlp_connector import run_nlp_check, parse_voice_query
+from scheduler import init_scheduler
+from nlp_connector import verify_image as verify_image_fn
+from memory_store import get_flagged_log
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voiceguard")
@@ -126,7 +131,7 @@ async def voice_check(payload: VoiceCheckRequest) -> Dict[str, Any]:
 
 
 @app.get("/history")
-async def history() -> Dict[str, Any]:
+async def history() -> List[Dict[str, Any]]:
     try:
         return get_history()
     except Exception:
@@ -177,11 +182,16 @@ async def manual_alert(payload: ManualAlertRequest) -> Dict[str, Any]:
         await manager.broadcast(result)
         # Trigger SMS
         try:
-            from .sms import send_sms_alert
-
-            send_sms_alert(payload.severity, payload.location, result.get("advice", ""))
+            from backend.sms import send_sms_alert
+            send_sms_alert(
+                payload.severity,
+                payload.location,
+                result.get("advice", ""),
+                int(result.get("posts_analyzed", 0)),
+                payload.disaster_type,
+            )
         except Exception:
-            logger.exception("Failed to send manual SMS alert")
+            logger.exception("[SMS] Failed to send manual SMS alert")
         return {"status": "ok", "result": result}
     except Exception:
         logger.exception("Manual alert failed")
@@ -190,20 +200,40 @@ async def manual_alert(payload: ManualAlertRequest) -> Dict[str, Any]:
 
 @app.get("/sources-status")
 async def sources_status() -> Dict[str, Any]:
-    status = {"reddit": {"status": "unknown", "count": 0}, "rss": {"status": "unknown", "count": 0}, "simulated": {"status": "unknown", "count": 0}}
+    status = {
+        "gdacs": {"status": "unknown", "count": 0},
+        "reliefweb": {"status": "unknown", "count": 0},
+        "bluesky": {"status": "unknown", "count": 0},
+        "rss": {"status": "unknown", "count": 0},
+        "simulated": {"status": "unknown", "count": 0},
+    }
     try:
         # attempt lightweight probe of scrapers
         try:
-            from nlp.scraper import scrape_reddit, scrape_rss, load_simulated
+            from nlp.scraper import scrape_gdacs, scrape_reliefweb, scrape_bluesky, scrape_rss, load_simulated
         except Exception:
-            from voiceguard_ai.nlp.scraper import scrape_reddit, scrape_rss, load_simulated
+            from voiceguard_ai.nlp.scraper import scrape_gdacs, scrape_reliefweb, scrape_bluesky, scrape_rss, load_simulated
 
         try:
-            r = scrape_reddit()
-            status["reddit"]["status"] = "connected" if r else "no-data"
-            status["reddit"]["count"] = len(r)
+            r = scrape_gdacs()
+            status["gdacs"]["status"] = "connected" if r else "no-data"
+            status["gdacs"]["count"] = len(r)
         except Exception:
-            status["reddit"]["status"] = "error"
+            status["gdacs"]["status"] = "error"
+
+        try:
+            r = scrape_reliefweb()
+            status["reliefweb"]["status"] = "connected" if r else "no-data"
+            status["reliefweb"]["count"] = len(r)
+        except Exception:
+            status["reliefweb"]["status"] = "error"
+
+        try:
+            r = scrape_bluesky()
+            status["bluesky"]["status"] = "connected" if r else "no-data"
+            status["bluesky"]["count"] = len(r)
+        except Exception:
+            status["bluesky"]["status"] = "error"
 
         try:
             r = scrape_rss()

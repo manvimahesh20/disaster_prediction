@@ -2,121 +2,551 @@
   {
     "id": "sim_001",
     "text": "SOS in Mangalore, homes near the river are flooded and people are stranded on rooftops.",
+    "title": "Urgent SOS: Flooding in Mangalore River Area",
+    "url": "https://example.com/sim_001",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T06:30:00Z"
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T06:30:00Z",
+    "score": 245
   },
   {
     "id": "sim_002",
     "text": "Heavy rain in Udupi causing waterlogging and road blocked near the bus stand.",
+    "title": "Heavy Rain Blocks Roads in Udupi Bus Stand",
+    "url": "https://example.com/sim_002",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T06:45:00Z"
+    "location": "Udupi",
+    "timestamp": "2026-05-14T06:45:00Z",
+    "score": 156
   },
   {
     "id": "sim_003",
     "text": "Cyclone warning issued for Coastal Karnataka, evacuate low lying areas in Mangaluru.",
+    "title": "Cyclone Warning: Evacuate Low-Lying Areas in Mangaluru",
+    "url": "https://example.com/sim_003",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T07:00:00Z"
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T07:00:00Z",
+    "score": 312
   },
   {
     "id": "sim_004",
     "text": "Light rain in Mangalore this morning, minor puddles but no major issues.",
+    "title": "Light Rain in Mangalore, Minor Disruptions",
+    "url": "https://example.com/sim_004",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T07:10:00Z"
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T07:10:00Z",
+    "score": 89
   },
   {
     "id": "sim_005",
     "text": "Fire reported in a warehouse on the outskirts of Udupi, emergency services on site.",
+    "title": "Warehouse Fire in Udupi Outskirts",
+    "url": "https://example.com/sim_005",
+    "image_url": "https://example.com/images/fire_udupi.jpg",
     "source": "simulated",
-    "timestamp": "2026-05-14T07:15:00Z"
+    "location": "Udupi",
+    "timestamp": "2026-05-14T07:15:00Z",
+    "score": 178
   },
   {
     "id": "sim_006",
     "text": "Residents in Mangaluru say they are trapped due to sudden landslide near the highway.",
+    "title": "Landslide Traps Residents Near Mangaluru Highway",
+    "url": "https://example.com/sim_006",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T07:20:00Z"
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T07:20:00Z",
+    "score": 267
   },
   {
     "id": "sim_007",
     "text": "Minor tremor felt in Udupi district, no damage reported yet.",
+    "title": "Minor Earthquake Felt in Udupi District",
+    "url": "https://example.com/sim_007",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T07:30:00Z"
+    "location": "Udupi",
+    "timestamp": "2026-05-14T07:30:00Z",
+    "score": 134
   },
   {
     "id": "sim_008",
     "text": "Rescue teams dispatched as families are stranded near Mangalore river banks.",
+    "title": "Rescue Teams Dispatched for Stranded Families in Mangalore",
+    "url": "https://example.com/sim_008",
+    "image_url": "https://example.com/images/rescue_mangalore.jpg",
     "source": "simulated",
-    "timestamp": "2026-05-14T07:35:00Z"
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T07:35:00Z",
+    "score": 298
   },
   {
     "id": "sim_009",
     "text": "Road blocked in Udupi after heavy rain last night.",
+    "title": "Road Blockage in Udupi Due to Heavy Rain",
+    "url": "https://example.com/sim_009",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T07:40:00Z"
+    "location": "Udupi",
+    "timestamp": "2026-05-14T07:40:00Z",
+    "score": 145
   },
   {
     "id": "sim_010",
     "text": "Coastal Karnataka on alert as cyclone winds intensify, evacuate coastal homes.",
+    "title": "Cyclone Alert: Evacuate Coastal Homes in Karnataka",
+    "url": "https://example.com/sim_010",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T07:45:00Z"
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T07:45:00Z",
+    "score": 356
   },
   {
     "id": "sim_011",
     "text": "Emergency services report stranded boats near Mangalore harbor after rough sea.",
+    "title": "Stranded Boats Near Mangalore Harbor",
+    "url": "https://example.com/sim_011",
+    "image_url": "https://example.com/images/boats_mangalore.jpg",
     "source": "simulated",
-    "timestamp": "2026-05-14T07:50:00Z"
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T07:50:00Z",
+    "score": 223
   },
   {
     "id": "sim_012",
     "text": "Light drizzle in Udupi, traffic moving slowly but normal.",
+    "title": "Light Drizzle in Udupi, Normal Traffic",
+    "url": "https://example.com/sim_012",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T08:00:00Z"
+    "location": "Udupi",
+    "timestamp": "2026-05-14T08:00:00Z",
+    "score": 67
   },
   {
     "id": "sim_013",
     "text": "Firefighters control small fire in a shop in Mangaluru market area.",
+    "title": "Small Fire Controlled in Mangaluru Market",
+    "url": "https://example.com/sim_013",
+    "image_url": "https://example.com/images/fire_mangalore.jpg",
     "source": "simulated",
-    "timestamp": "2026-05-14T08:05:00Z"
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T08:05:00Z",
+    "score": 189
   },
   {
     "id": "sim_014",
     "text": "Rescue and relief camps set up in Udupi as rain continues.",
+    "title": "Relief Camps Set Up in Udupi Amid Rain",
+    "url": "https://example.com/sim_014",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T08:10:00Z"
+    "location": "Udupi",
+    "timestamp": "2026-05-14T08:10:00Z",
+    "score": 234
   },
   {
     "id": "sim_015",
     "text": "People requested to evacuate low lying areas of Mangalore due to rising water level.",
+    "title": "Evacuation Requested in Low-Lying Mangalore Areas",
+    "url": "https://example.com/sim_015",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T08:15:00Z"
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T08:15:00Z",
+    "score": 278
   },
   {
     "id": "sim_016",
     "text": "Minor landslide cleared on coastal highway near Udupi, traffic restored.",
+    "title": "Landslide Cleared on Coastal Highway Near Udupi",
+    "url": "https://example.com/sim_016",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T08:20:00Z"
+    "location": "Udupi",
+    "timestamp": "2026-05-14T08:20:00Z",
+    "score": 112
   },
   {
     "id": "sim_017",
     "text": "SOS call from Mangaluru suburb, families trapped after flash flood.",
+    "title": "SOS: Families Trapped in Mangaluru Suburb Flash Flood",
+    "url": "https://example.com/sim_017",
+    "image_url": "https://example.com/images/flood_mangalore.jpg",
     "source": "simulated",
-    "timestamp": "2026-05-14T08:25:00Z"
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T08:25:00Z",
+    "score": 345
   },
   {
     "id": "sim_018",
     "text": "Waterlogging near Udupi railway station, buses diverted.",
+    "title": "Waterlogging at Udupi Railway Station, Buses Diverted",
+    "url": "https://example.com/sim_018",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T08:30:00Z"
+    "location": "Udupi",
+    "timestamp": "2026-05-14T08:30:00Z",
+    "score": 167
   },
   {
     "id": "sim_019",
     "text": "IMD issues alert for Coastal Karnataka, heavy rain expected tonight.",
+    "title": "IMD Alert: Heavy Rain Expected in Coastal Karnataka",
+    "url": "https://example.com/sim_019",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T08:35:00Z"
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T08:35:00Z",
+    "score": 289
   },
   {
     "id": "sim_020",
     "text": "Evacuation underway in Mangaluru coastal wards, storm surge risk high.",
+    "title": "Evacuation Underway in Mangaluru Coastal Wards",
+    "url": "https://example.com/sim_020",
+    "image_url": null,
     "source": "simulated",
-    "timestamp": "2026-05-14T08:40:00Z"
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T08:40:00Z",
+    "score": 301
+  },
+  {
+    "id": "sim_021",
+    "text": "Heavy winds reported in Udupi, trees fallen on roads.",
+    "title": "Heavy Winds in Udupi, Trees Fallen on Roads",
+    "url": "https://example.com/sim_021",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T08:45:00Z",
+    "score": 198
+  },
+  {
+    "id": "sim_022",
+    "text": "Flood waters rising in Mangalore river, residents advised to move to higher ground.",
+    "title": "Flood Waters Rising in Mangalore River",
+    "url": "https://example.com/sim_022",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T08:50:00Z",
+    "score": 256
+  },
+  {
+    "id": "sim_023",
+    "text": "Power outage in Udupi due to heavy rain, restoration in progress.",
+    "title": "Power Outage in Udupi Due to Heavy Rain",
+    "url": "https://example.com/sim_023",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T08:55:00Z",
+    "score": 145
+  },
+  {
+    "id": "sim_024",
+    "text": "Cyclone approaching Coastal Karnataka, IMD issues red alert.",
+    "title": "Cyclone Approaching: IMD Issues Red Alert for Coastal Karnataka",
+    "url": "https://example.com/sim_024",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T09:00:00Z",
+    "score": 378
+  },
+  {
+    "id": "sim_025",
+    "text": "Rescue operations ongoing in flooded areas of Mangalore.",
+    "title": "Rescue Operations Ongoing in Flooded Mangalore Areas",
+    "url": "https://example.com/sim_025",
+    "image_url": "https://example.com/images/rescue_mangalore2.jpg",
+    "source": "simulated",
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T09:05:00Z",
+    "score": 312
+  },
+  {
+    "id": "sim_026",
+    "text": "Minor injuries reported in Udupi landslide incident.",
+    "title": "Minor Injuries in Udupi Landslide",
+    "url": "https://example.com/sim_026",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T09:10:00Z",
+    "score": 134
+  },
+  {
+    "id": "sim_027",
+    "text": "Storm surge warning for Mangalore coast, avoid beaches.",
+    "title": "Storm Surge Warning for Mangalore Coast",
+    "url": "https://example.com/sim_027",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T09:15:00Z",
+    "score": 267
+  },
+  {
+    "id": "sim_028",
+    "text": "Relief materials distributed in Udupi relief camps.",
+    "title": "Relief Materials Distributed in Udupi Camps",
+    "url": "https://example.com/sim_028",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T09:20:00Z",
+    "score": 178
+  },
+  {
+    "id": "sim_029",
+    "text": "Earthquake tremors felt in Coastal Karnataka, no major damage.",
+    "title": "Earthquake Tremors Felt in Coastal Karnataka",
+    "url": "https://example.com/sim_029",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T09:25:00Z",
+    "score": 223
+  },
+  {
+    "id": "sim_030",
+    "text": "Flood evacuation centers opened in Mangalore schools.",
+    "title": "Flood Evacuation Centers Opened in Mangalore Schools",
+    "url": "https://example.com/sim_030",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T09:30:00Z",
+    "score": 245
+  },
+  {
+    "id": "sim_031",
+    "text": "Road repairs underway in Udupi after rain damage.",
+    "title": "Road Repairs Underway in Udupi",
+    "url": "https://example.com/sim_031",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T09:35:00Z",
+    "score": 112
+  },
+  {
+    "id": "sim_032",
+    "text": "Cyclone winds damaging crops in Coastal Karnataka.",
+    "title": "Cyclone Winds Damaging Crops in Coastal Karnataka",
+    "url": "https://example.com/sim_032",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T09:40:00Z",
+    "score": 189
+  },
+  {
+    "id": "sim_033",
+    "text": "Medical teams deployed to Mangalore flood victims.",
+    "title": "Medical Teams Deployed to Mangalore Flood Victims",
+    "url": "https://example.com/sim_033",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T09:45:00Z",
+    "score": 234
+  },
+  {
+    "id": "sim_034",
+    "text": "Water supply disrupted in Udupi due to flooding.",
+    "title": "Water Supply Disrupted in Udupi Due to Flooding",
+    "url": "https://example.com/sim_034",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T09:50:00Z",
+    "score": 167
+  },
+  {
+    "id": "sim_035",
+    "text": "Emergency helpline overwhelmed with calls from Coastal Karnataka.",
+    "title": "Emergency Helpline Overwhelmed in Coastal Karnataka",
+    "url": "https://example.com/sim_035",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T09:55:00Z",
+    "score": 278
+  },
+  {
+    "id": "sim_036",
+    "text": "School closures announced in Mangalore due to bad weather.",
+    "title": "Schools Closed in Mangalore Due to Bad Weather",
+    "url": "https://example.com/sim_036",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T10:00:00Z",
+    "score": 145
+  },
+  {
+    "id": "sim_037",
+    "text": "Boat services suspended in Udupi harbor.",
+    "title": "Boat Services Suspended in Udupi Harbor",
+    "url": "https://example.com/sim_037",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T10:05:00Z",
+    "score": 123
+  },
+  {
+    "id": "sim_038",
+    "text": "Wildfire reported in Coastal Karnataka hills.",
+    "title": "Wildfire Reported in Coastal Karnataka Hills",
+    "url": "https://example.com/sim_038",
+    "image_url": "https://example.com/images/wildfire_karnataka.jpg",
+    "source": "simulated",
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T10:10:00Z",
+    "score": 198
+  },
+  {
+    "id": "sim_039",
+    "text": "Flood relief funds announced for Mangalore victims.",
+    "title": "Flood Relief Funds Announced for Mangalore",
+    "url": "https://example.com/sim_039",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T10:15:00Z",
+    "score": 256
+  },
+  {
+    "id": "sim_040",
+    "text": "Traffic signals malfunctioning in Udupi due to rain.",
+    "title": "Traffic Signals Malfunctioning in Udupi",
+    "url": "https://example.com/sim_040",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T10:20:00Z",
+    "score": 89
+  },
+  {
+    "id": "sim_041",
+    "text": "Storm damage assessment underway in Coastal Karnataka.",
+    "title": "Storm Damage Assessment in Coastal Karnataka",
+    "url": "https://example.com/sim_041",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T10:25:00Z",
+    "score": 167
+  },
+  {
+    "id": "sim_042",
+    "text": "Hospital overflow in Mangalore treating flood injuries.",
+    "title": "Hospital Overflow in Mangalore Treating Flood Injuries",
+    "url": "https://example.com/sim_042",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T10:30:00Z",
+    "score": 289
+  },
+  {
+    "id": "sim_043",
+    "text": "Fishermen warned to stay ashore in Udupi.",
+    "title": "Fishermen Warned to Stay Ashore in Udupi",
+    "url": "https://example.com/sim_043",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T10:35:00Z",
+    "score": 134
+  },
+  {
+    "id": "sim_044",
+    "text": "Cyclone path shifting towards Coastal Karnataka coast.",
+    "title": "Cyclone Path Shifting Towards Coastal Karnataka",
+    "url": "https://example.com/sim_044",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T10:40:00Z",
+    "score": 345
+  },
+  {
+    "id": "sim_045",
+    "text": "Community kitchens opened in Mangalore relief centers.",
+    "title": "Community Kitchens Opened in Mangalore Relief Centers",
+    "url": "https://example.com/sim_045",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T10:45:00Z",
+    "score": 178
+  },
+  {
+    "id": "sim_046",
+    "text": "Bridge inspection ordered in Udupi after heavy rains.",
+    "title": "Bridge Inspection Ordered in Udupi",
+    "url": "https://example.com/sim_046",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T10:50:00Z",
+    "score": 112
+  },
+  {
+    "id": "sim_047",
+    "text": "Tsunami warning lifted for Coastal Karnataka.",
+    "title": "Tsunami Warning Lifted for Coastal Karnataka",
+    "url": "https://example.com/sim_047",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T10:55:00Z",
+    "score": 267
+  },
+  {
+    "id": "sim_048",
+    "text": "Flood insurance claims processing started in Mangalore.",
+    "title": "Flood Insurance Claims Processing Started in Mangalore",
+    "url": "https://example.com/sim_048",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Mangalore",
+    "timestamp": "2026-05-14T11:00:00Z",
+    "score": 145
+  },
+  {
+    "id": "sim_049",
+    "text": "Weather improving in Udupi, rain stopping.",
+    "title": "Weather Improving in Udupi",
+    "url": "https://example.com/sim_049",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Udupi",
+    "timestamp": "2026-05-14T11:05:00Z",
+    "score": 98
+  },
+  {
+    "id": "sim_050",
+    "text": "Recovery efforts begin in Coastal Karnataka disaster zones.",
+    "title": "Recovery Efforts Begin in Coastal Karnataka Disaster Zones",
+    "url": "https://example.com/sim_050",
+    "image_url": null,
+    "source": "simulated",
+    "location": "Coastal Karnataka",
+    "timestamp": "2026-05-14T11:10:00Z",
+    "score": 223
   }
 ]

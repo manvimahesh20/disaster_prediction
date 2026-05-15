@@ -1,9 +1,10 @@
 fastapi
 uvicorn
 apscheduler
-praw
+atproto
 feedparser
 transformers
+torch
 spacy
 twilio
 python-dotenv
